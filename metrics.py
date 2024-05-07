@@ -29,14 +29,17 @@ def compute_similarity(input_string, reference_string):
 
 def validate(GT, PRED, args, OUTPUT_FILE=None):
     if args.dataset_name == 'avqa':
-        ACC = {'Before Next':0.0,'Come From':0.0,'Happening':0.0,'Used For':0.0,'When':0.0, 'Where':0.0, 'Which':0.0, 'Why':0.0, 'What':0.0}
-        COUNT = {'Before Next':0,'Come From':0,'Happening':0,'Used For':0,'When':0, 'Where':0, 'Which':0, 'Why':0, 'What':0}
-    elif args.dataset_name == 'music_avqa':
-        ACC = {'Counting':0.0,'Temporal':0.0,'Location':0.0,'Comparison':0.0,'Existential':0.0}
-        COUNT = {'Counting':0,'Temporal':0,'Location':0,'Comparison':0,'Existential':0}
+        ACC = {'Temporal':0.0,'Localis':0.0,'Existential':0.0, 'Common Sense/World Knowledge':0.0} 
+        COUNT = {'Temporal':0,'Localis':0,'Existential':0, 'Common Sense/World Knowledge':0}
+    elif args.dataset_name in ['music_avqa', 'avqa']:
+        ACC = {'Counting':0.0,'Temporal':0.0,'Location':0.0,'Comparative':0.0,'Existential':0.0}
+        COUNT = {'Counting':0,'Temporal':0,'Location':0,'Comparative':0,'Existential':0}
     elif args.dataset_name == 'audioset': ## TO BE UPDATED
         ACC = {'Before Next':0.0,'Come From':0.0,'Happening':0.0,'Used For':0.0,'When':0.0, 'Where':0.0, 'Which':0.0, 'Why':0.0, 'What':0.0}
         COUNT = {'Before Next':0,'Come From':0,'Happening':0,'Used For':0,'When':0, 'Where':0, 'Which':0, 'Why':0, 'What':0}
+    elif args.dataset_name == 'compa':
+        ACC = {'compositional_attribute': 0.0}
+        COUNT = {'compositional_attribute': 0.0}
     else:
         raise NameError('Invalid dataset name!!!')
     
@@ -45,6 +48,9 @@ def validate(GT, PRED, args, OUTPUT_FILE=None):
     #        'how many':0.0, 'shown':0.0}
     # COUNT = {'which':0,'source':0,'happen':0,'where':0,'why':0, 'appears':0, 'when':0, 'doing':0, 
     #        'how many':0, 'shown':0}
+    # ACC = {'Before Next':0.0,'Come From':0.0,'Happening':0.0,'Used For':0.0,'When':0.0, 'Where':0.0, 'Which':0.0, 'Why':0.0, 'What':0.0}
+    # COUNT = {'Before Next':0,'Come From':0,'Happening':0,'Used For':0,'When':0, 'Where':0, 'Which':0, 'Why':0, 'What':0}
+    
     
     
     
@@ -63,8 +69,13 @@ def validate(GT, PRED, args, OUTPUT_FILE=None):
             correct_class = gt["correct_class"]
             
             try:
-                pred_ans = formatted_pred[id]['extracted_ans'].split(") ")[-1]
-                pred_ans = pred_ans.replace('.', '').lower()
+                if args.dataset_name == 'compa':
+                    pred_ans = formatted_pred[id]['extracted_ans'].split(") ")[0]
+                    pred_ans = pred_ans.replace('(', '').lower()
+                    # print('=========> pred_ans', pred_ans)
+                else:
+                    pred_ans = formatted_pred[id]['extracted_ans'].split(") ")[-1]
+                    pred_ans = pred_ans.replace('.', '').lower()
 
                 for k in ACC.keys():
                     if k.lower() in question_type:
@@ -75,6 +86,10 @@ def validate(GT, PRED, args, OUTPUT_FILE=None):
                             if args.task_name in ['AAD', 'IASD']:
                                 if compute_similarity(correct_class, pred_ans) >= 0.75 or pred_ans in correct_class:
                                     ACC[k] += 1.0
+                            COUNT[k] += 1
+                        elif args.dataset_name == 'compa':
+                            if pred_ans == 'a':
+                                ACC[k] += 1.0
                             COUNT[k] += 1
                         else:
                             if compute_similarity(answer, pred_ans) >= 0.5 or pred_ans in answer:

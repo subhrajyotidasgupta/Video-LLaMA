@@ -1,4 +1,5 @@
 import copy
+import math
 import os
 import re
 import torch
@@ -35,24 +36,84 @@ random.seed(1234)
 df = pd.read_csv('/home/mila/s/subhrajyoti.dasgupta/scratch/videollama/data/error_yt_ids.csv', names=['yt_id'])
 YT_INVALID_IDS = df['yt_id'].values
 
-COD_DOWNLOADED_VIDEOS = os.listdir('/home/mila/s/subhrajyoti.dasgupta/scratch/videollama/data/cod/videos')
+COD_DOWNLOADED_VIDEOS = os.listdir('/home/mila/s/subhrajyoti.dasgupta/scratch/videollama/data/cod/stitch/videos')
+
+AVQA_CAT_FREQ = {'Existential': 14728,
+                'Common Sense/World Knowledge': 102,
+                'Localis': 2056,
+                'Temporal': 20}
+
+MUSIC_AVQA_CAT_FREQ ={'Counting': 3478,
+                    'Existential': 987,
+                    'Location': 2144,
+                    'Comparative': 1694,
+                    'Temporal': 821}
+
+COMPA_CAT_FREQ = {'compositional_attribute': 200}
 
 def read_txt(path):
     with open(path, "r") as fin:
         data = fin.readline().strip()
     return data
 
+def calculate_freq(js):
+    cat_freq = dict()
+    for j in js:
+        if j['question_type'] not in cat_freq.keys():
+            cat_freq[j['question_type']] = 1
+        else:
+            cat_freq[j['question_type']] += 1
+    return cat_freq  
 
 def load_data(args, anno_path, split=None):
     with open(args.gt_file, 'r') as f:
         data = json.load(f)
-    random.shuffle(data)
-    return data[:args.num_samples]    # CHANGE LATER ON.
+    # random.shuffle(data)
+    split = 'val' if split == 'test' else 'train'
+    out_data = [j for j in data if j['data_split'] == split]
+    
+    # cat_freq = calculate_freq(out_data)
+    
+    if args.dataset == 'avqa':
+        cat_freq = AVQA_CAT_FREQ
+    elif args.dataset == 'music_avqa':
+        cat_freq = MUSIC_AVQA_CAT_FREQ
+    elif args.dataset == 'compa':
+        cat_freq = COMPA_CAT_FREQ
+    cat_sum = sum([cat_freq[k] for k in cat_freq.keys()])
+    minimum_count_cat = dict()
+    for k in cat_freq.keys():
+        minimum_count_cat[k] = int(math.ceil(cat_freq[k]/cat_sum * 200))
+        
+    selected_data = []
+    for k in minimum_count_cat.keys():
+        filtered_data = [j for j in out_data if j['question_type'] == k]
+        if len(filtered_data) >= minimum_count_cat[k]:
+            selected_data.extend(filtered_data[:minimum_count_cat[k]])
+        else:
+            selected_data.extend(filtered_data)
+    # selected_data = selected_data[:n]
+    print('Frequency =====> ', calculate_freq(selected_data))
+    return selected_data
+    
+    
+    # selected_data = []
+    # question_types = set([j['question_type'] for j in out_data])
+    # for question_type in question_types:
+    #     filtered_data = [j for j in out_data if j['question_type'] == question_type]
+    #     if len(filtered_data) >= 20:
+    #         selected_data.extend(filtered_data[:20])
+    #     else:
+    #         selected_data.extend(filtered_data)
+    # selected_data = selected_data[:100]
+    # return out_data
+    
 
 
 def save_result(args, output_dir, results, split_name='test', format=False):
     Path(output_dir).mkdir(parents=True, exist_ok=True)
-    file_name = f'{args.task}_{args.dataset}_{split_name}_f{args.num_frames}_result_{args.num_samples}.json'
+    # file_name = f'{args.task}_{args.dataset}_{split_name}_f{args.num_frames}_result_{args.num_samples}.json'
+    file_name = args.pred_file
     with open(os.path.join(output_dir, file_name), 'w') as f:
         json.dump(results, f)
     print(file_name, 'saved!')
@@ -165,8 +226,8 @@ def main(args):
         # if vname[-11:] in YT_INVALID_IDS:
         #     continue
         
-        # if jterm['data_split'] != 'train':
-        #     continue
+        if jterm['data_split'] != 'val':
+            continue
         
         # if f'{vname}.mp4' not in COD_DOWNLOADED_VIDEOS:
         #     continue
@@ -179,8 +240,16 @@ def main(args):
         
         if args.dataset == 'music_avqa' and jterm['is_binary'] == 'yes':
             choices = f" The options are: (A)yes, (B)no."
+        elif len(jterm['multi_choice']) == 3:
+            choices = f" The options are: (A){choices[0]}, (B){choices[1]}, (C){choices[2]}."
+            if args.is_nota == 'True':
+                choices = choices[:-1] + " (D)None of the above."
         else:
             choices = f" The options are: (A){choices[0]}, (B){choices[1]}, (C){choices[2]}, (D){choices[3]}."
+            if args.is_nota == 'True':
+                choices = choices[:-1] + " (E)None of the above."
+            
+        
             
         print(jterm["id"], choices)
         questions.append(jterm["question"] + choices)
@@ -232,6 +301,7 @@ if __name__ == "__main__":
     parser.add_argument('--model_type', type=str)
     parser.add_argument('--task', default='Absent_Answer_Detection')
     parser.add_argument('--dataset', default='AVQA')
+    parser.add_argument('--is_nota', default='True', type=str)
     parser.add_argument('--output_dir', default='debug')
     parser.add_argument('--gt_file', default='', type=str)
     parser.add_argument('--split', default='val')
@@ -245,6 +315,7 @@ if __name__ == "__main__":
     #                     default='ckpt/video_llama_trained_model.pth')
     parser.add_argument('--sample_num', type=int, default=-1, help='fast inference by sampling N instances to evaluate')
     parser.add_argument('--example_output', action='store_true', help='output the example results')
+    parser.add_argument('--pred_file', type=str, default='pred.json')
     parser.add_argument('--no_lora', action='store_true')
     args = parser.parse_args()
     main(args)

@@ -1,6 +1,6 @@
 model:
   arch: video_llama
-  model_type: pretrain_vicuna
+  model_type: pretrain_llama_v2
   freeze_vit: True
   freeze_qformer: True
 
@@ -31,14 +31,14 @@ model:
   # vicuna and llama_2_chat use different template !!!!
 
   # for llama_2_chat:
-  # end_sym: "</s>"
-  # prompt_path: "prompts/alignment_image.txt"
-  # prompt_template: '[INST] <<SYS>>\n \n<</SYS>>\n\n{} [/INST] '
+  end_sym: "</s>"
+  prompt_path: "prompts/alignment_image.txt"
+  prompt_template: '[INST] <<SYS>>\n \n<</SYS>>\n\n{} [/INST] '
 
   # for vicuna:
-  end_sym: "###"
-  prompt_path: "prompts/alignment_image.txt"
-  prompt_template: '###Human: {} ###Assistant: '
+  # end_sym: "###"
+  # prompt_path: "prompts/alignment_image.txt"
+  # prompt_template: '###Human: {} ###Assistant: '
 
 
   
@@ -75,7 +75,7 @@ datasets:
   webvid_instruct:
     data_type: video
     build_info:
-      anno_dir: /home/mila/s/subhrajyoti.dasgupta/Video-LLaMA/instructions/AAD_AVQA_nota_105K.json # path/videochat_instruct_11k.json # /home/mila/s/subhrajyoti.dasgupta/Video-LLaMA/instructions/tmp_inst.json
+      anno_dir: /home/mila/s/subhrajyoti.dasgupta/Video-LLaMA/instructions/IASD_AVQA_base_105K.json # path/videochat_instruct_11k.json # /home/mila/s/subhrajyoti.dasgupta/Video-LLaMA/instructions/tmp_inst.json
       videos_dir: /home/mila/s/subhrajyoti.dasgupta/scratch/videollama/data/
     vis_processor:
       train:
@@ -106,7 +106,7 @@ run:
   warmup_steps: 400
 
   seed: 42
-  output_dir: "/home/mila/s/subhrajyoti.dasgupta/scratch/videollama/trained_models/audiobranch_stage2_finetune/aad_avqa_nota" # TO CHANGE
+  output_dir: "/home/mila/s/subhrajyoti.dasgupta/scratch/videollama/trained_models/audiobranch_stage2_finetune/iasd_avqa_base" # TO CHANGE
 
   amp: True
   resume_ckpt_path: null
